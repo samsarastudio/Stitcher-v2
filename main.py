@@ -39,7 +39,13 @@ app.add_middleware(
 TEMP_DIR = os.getenv("TEMP_DIR", "temp_uploads")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output_videos")
 
-# Ensure directories exist and are writable
+# Initialize task manager
+task_manager = TaskManager(OUTPUT_DIR)
+
+# Maximum upload size (default to 100MB)
+MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", "100MB").replace("MB", "")) * 1024 * 1024
+logger.info(f"Maximum upload size: {MAX_UPLOAD_SIZE / (1024*1024)}MB")
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""
@@ -62,10 +68,6 @@ async def startup_event():
         logger.info(f"Using temporary directory: {TEMP_DIR}")
         logger.info(f"Using output directory: {OUTPUT_DIR}")
         
-        # Initialize task manager
-        global task_manager
-        task_manager = TaskManager(OUTPUT_DIR)
-        
         # Clean up old tasks
         task_manager.cleanup_old_tasks()
         
@@ -76,13 +78,6 @@ async def startup_event():
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Initialize task manager
-task_manager = TaskManager(OUTPUT_DIR)
-
-# Maximum upload size (default to 100MB)
-MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", "100MB").replace("MB", "")) * 1024 * 1024
-logger.info(f"Maximum upload size: {MAX_UPLOAD_SIZE / (1024*1024)}MB")
 
 async def process_video_task(task_id: str, wwe_path: str, fan_path: str):
     """Background task to process videos"""
@@ -127,29 +122,8 @@ async def process_video_task(task_id: str, wwe_path: str, fan_path: str):
 async def root():
     """Health check endpoint"""
     try:
-        # Check if directories exist and are writable
-        temp_dir = Path(TEMP_DIR)
-        output_dir = Path(OUTPUT_DIR)
-        
-        if not temp_dir.exists():
-            temp_dir.mkdir(parents=True)
-        if not output_dir.exists():
-            output_dir.mkdir(parents=True)
-            
-        # Test directory permissions
-        test_file = temp_dir / "test.txt"
-        test_file.touch()
-        test_file.unlink()
-        
-        return {
-            "status": "healthy",
-            "service": "Video Stitcher API",
-            "directories": {
-                "temp": str(temp_dir),
-                "output": str(output_dir)
-            },
-            "max_upload_size": f"{MAX_UPLOAD_SIZE / (1024*1024)}MB"
-        }
+        # Simple health check that verifies the application is running
+        return {"status": "healthy", "service": "Video Stitcher API"}
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(

@@ -5,6 +5,10 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
     ffmpeg \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -24,9 +28,11 @@ RUN mkdir -p temp_uploads static output_videos && \
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app
+ENV PYTHONIOENCODING=utf-8
 
 # Expose the port the app runs on
 EXPOSE 8000
 
 # Command to run the application with proper logging
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"] 
