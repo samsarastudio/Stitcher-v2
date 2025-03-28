@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 from task_manager import TaskManager, TaskStatus
 from pathlib import Path
 import time
-import psutil
 
 # Load environment variables
 load_dotenv()
@@ -78,7 +77,11 @@ async def health_check():
 @app.get(f"{API_V1_PREFIX}/status")
 async def api_status():
     """API status endpoint"""
-    return await health_check()
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "timestamp": time.time()
+    }
 
 @app.get(f"{API_V1_PREFIX}/tasks")
 async def list_tasks():
