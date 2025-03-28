@@ -66,83 +66,42 @@ API_V1_PREFIX = "/api/v1"
 # Health and Status Endpoints
 @app.get("/")
 async def root():
-    """Root endpoint that redirects to API docs"""
-    return RedirectResponse(url="/api/docs")
+    """Welcome endpoint"""
+    return {"message": "Welcome to the Video Stitcher API"}
 
 @app.get("/status")
-async def status():
-    """Comprehensive health check endpoint"""
+async def health_check():
+    """Health check endpoint for Railway"""
     try:
-        # Check if directories exist and are writable
-        temp_dir = Path(TEMP_DIR)
-        output_dir = Path(OUTPUT_DIR)
+        # Check if required directories exist
+        required_dirs = ["temp_uploads", "output_videos"]
+        for dir_name in required_dirs:
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
+                logger.info(f"Created directory: {dir_name}")
         
-        if not temp_dir.exists():
-            temp_dir.mkdir(parents=True)
-        if not output_dir.exists():
-            output_dir.mkdir(parents=True)
-            
-        # Test write permissions
-        test_file = temp_dir / "test.txt"
-        test_file.touch()
-        test_file.unlink()
+        # Check if required environment variables are set
+        required_env_vars = ["PORT", "TARGET_WIDTH", "TARGET_HEIGHT", "TARGET_FPS"]
+        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+        if missing_vars:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Missing required environment variables: {', '.join(missing_vars)}"
+            )
         
-        # Get system information
-        cpu_percent = psutil.cpu_percent()
-        memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
-        
-        # Get task statistics
-        all_tasks = task_manager.get_all_tasks()
-        task_stats = {
-            "total": len(all_tasks),
-            "pending": len([t for t in all_tasks if t["status"] == TaskStatus.PENDING.value]),
-            "processing": len([t for t in all_tasks if t["status"] == TaskStatus.PROCESSING.value]),
-            "completed": len([t for t in all_tasks if t["status"] == TaskStatus.COMPLETED.value]),
-            "failed": len([t for t in all_tasks if t["status"] == TaskStatus.FAILED.value])
+        return {
+            "status": "healthy",
+            "environment": "production" if os.getenv("RAILWAY_ENVIRONMENT") else "development"
         }
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "healthy",
-                "service": "Video Stitcher API",
-                "version": "1.0.0",
-                "timestamp": time.time(),
-                "directories": {
-                    "temp": str(temp_dir),
-                    "output": str(output_dir)
-                },
-                "system": {
-                    "cpu_percent": cpu_percent,
-                    "memory_percent": memory.percent,
-                    "disk_percent": disk.percent
-                },
-                "tasks": task_stats,
-                "environment": {
-                    "max_upload_size": MAX_UPLOAD_SIZE,
-                    "target_width": TARGET_WIDTH,
-                    "target_height": TARGET_HEIGHT,
-                    "target_fps": TARGET_FPS
-                }
-            }
-        )
     except Exception as e:
-        logger.error(f"Status check failed: {str(e)}")
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "unhealthy",
-                "error": str(e),
-                "timestamp": time.time()
-            }
-        )
+        logger.error(f"Health check failed: {str(e)}")
+        raise HTTPException(status_code=503, detail="Service unavailable")
 
 # API v1 Endpoints
 @app.get(f"{API_V1_PREFIX}/status")
 async def api_status():
     """API status endpoint"""
-    return await status()
+    return await health_check()
 
 @app.get(f"{API_V1_PREFIX}/tasks")
 async def list_tasks():
