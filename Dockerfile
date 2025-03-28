@@ -21,8 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create directories for temporary uploads and static files with proper permissions
-RUN mkdir -p temp_uploads static output_videos && \
-    chmod -R 777 temp_uploads output_videos && \
+RUN mkdir -p temp output static && \
+    chmod -R 777 temp output && \
     chmod -R 755 static
 
 # Set environment variables
@@ -34,6 +34,11 @@ ENV PYTHONIOENCODING=utf-8
 ENV TARGET_WIDTH=1280
 ENV TARGET_HEIGHT=720
 ENV TARGET_FPS=30
+ENV VIDEO_BITRATE=2000k
+ENV AUDIO_BITRATE=128k
+ENV MAX_UPLOAD_SIZE=100
+ENV TEMP_DIR=temp
+ENV OUTPUT_DIR=output
 
 # Expose the port the app runs on
 EXPOSE 8000
