@@ -71,7 +71,7 @@ async def root():
 
 @app.get("/status")
 async def health_check():
-    """Health check endpoint for Railway"""
+    """Health check endpoint for Railway - must return 200 for successful deployment"""
     return {"status": "ok"}
 
 # API v1 Endpoints

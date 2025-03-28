@@ -3,10 +3,10 @@ builder = "DOCKERFILE"
 dockerfilePath = "./Dockerfile"
 
 [deploy]
-startCommand = "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info"
+startCommand = "sh -c 'uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info'"
 healthcheckPath = "/status"
-healthcheckTimeout = 120
-restartPolicyMaxRetries = 5
+healthcheckTimeout = 300
+restartPolicyMaxRetries = 3
 healthcheckInterval = 15
 
 [deploy.env]
@@ -19,4 +19,6 @@ TARGET_HEIGHT = "720"
 TARGET_FPS = "30"
 VIDEO_BITRATE = "2000k"
 AUDIO_BITRATE = "128k"
-MAX_UPLOAD_SIZE = "100" 
+MAX_UPLOAD_SIZE = "100"
+TEMP_DIR = "temp"
+OUTPUT_DIR = "output" 
