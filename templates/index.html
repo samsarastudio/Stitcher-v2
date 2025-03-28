@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Stitcher Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="/static/styles.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-gray-800">Video Stitcher</h1>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Upload Section -->
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Upload Videos</h2>
+            <form id="uploadForm" class="space-y-4">
+                <!-- WWE Video Upload -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">WWE Video</label>
+                    <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                        <div class="space-y-1 text-center">
+                            <div class="flex text-sm text-gray-600">
+                                <label class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                    <span>Upload a file</span>
+                                    <input name="wwe_video" type="file" class="sr-only" accept="video/*">
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500">MP4 up to 100MB</p>
+                        </div>
+                    </div>
+                    <div id="wwePreview" class="hidden mt-2">
+                        <video class="w-full rounded-lg" controls></video>
+                    </div>
+                </div>
+
+                <!-- Fan Video Upload -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Fan Video</label>
+                    <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                        <div class="space-y-1 text-center">
+                            <div class="flex text-sm text-gray-600">
+                                <label class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                    <span>Upload a file</span>
+                                    <input name="fan_video" type="file" class="sr-only" accept="video/*">
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500">MP4 up to 100MB</p>
+                        </div>
+                    </div>
+                    <div id="fanPreview" class="hidden mt-2">
+                        <video class="w-full rounded-lg" controls></video>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="progress" class="hidden">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-blue-600 h-2.5 rounded-full progress-bar"></div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">Processing videos...</p>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Stitch Videos
+                </button>
+            </form>
+
+            <!-- Result Section -->
+            <div id="result" class="hidden mt-6">
+                <h3 class="text-lg font-semibold mb-4">Result</h3>
+                <video id="resultVideo" class="w-full rounded-lg" controls></video>
+                <div class="mt-4">
+                    <a id="downloadBtn" href="#" download class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        Download Video
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Videos Section -->
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Recent Videos</h2>
+            <div id="recentVideos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Videos will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Popular Videos Section -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-semibold mb-4">Popular Videos</h2>
+            <div id="popularVideos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Videos will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html> 

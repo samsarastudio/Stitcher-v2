@@ -1,7 +1,9 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 import os
 import logging
 import uuid
@@ -43,6 +45,9 @@ app = FastAPI(
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Templates
+templates = Jinja2Templates(directory="templates")
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -63,10 +68,10 @@ task_manager = TaskManager(OUTPUT_DIR)
 API_V1_PREFIX = "/api/v1"
 
 # Health and Status Endpoints
-@app.get("/")
-async def root():
-    """Welcome endpoint"""
-    return {"message": "Welcome to the Video Stitcher API"}
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    """Serve the dashboard"""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/status")
 async def health_check():
