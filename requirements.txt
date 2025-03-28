@@ -1,0 +1,7 @@
+fastapi==0.109.2
+uvicorn==0.27.1
+python-multipart==0.0.9
+moviepy==1.0.3
+opencv-python==4.9.0.80
+numpy==1.26.4
+python-dotenv==1.0.1 
