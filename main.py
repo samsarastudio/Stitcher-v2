@@ -72,58 +72,7 @@ async def root():
 @app.get("/status")
 async def health_check():
     """Health check endpoint for Railway"""
-    try:
-        # Check if required directories exist
-        required_dirs = [TEMP_DIR, OUTPUT_DIR]
-        for dir_name in required_dirs:
-            if not os.path.exists(dir_name):
-                os.makedirs(dir_name)
-                logger.info(f"Created directory: {dir_name}")
-        
-        # Check if required environment variables are set
-        required_env_vars = [
-            "PORT",
-            "TARGET_WIDTH",
-            "TARGET_HEIGHT",
-            "TARGET_FPS",
-            "VIDEO_BITRATE",
-            "AUDIO_BITRATE",
-            "MAX_UPLOAD_SIZE"
-        ]
-        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-        if missing_vars:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Missing required environment variables: {', '.join(missing_vars)}"
-            )
-        
-        # Check if the application is listening on the correct port
-        port = int(os.getenv("PORT", "8000"))
-        try:
-            # Try to bind to the port to ensure it's available
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.bind(('0.0.0.0', port))
-            sock.close()
-        except Exception as e:
-            logger.error(f"Port {port} is not available: {str(e)}")
-            raise HTTPException(
-                status_code=503,
-                detail=f"Port {port} is not available"
-            )
-        
-        return {
-            "status": "healthy",
-            "environment": "production" if os.getenv("RAILWAY_ENVIRONMENT") else "development",
-            "port": port,
-            "directories": {
-                "temp": TEMP_DIR,
-                "output": OUTPUT_DIR
-            }
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        raise HTTPException(status_code=503, detail="Service unavailable")
+    return {"status": "ok"}
 
 # API v1 Endpoints
 @app.get(f"{API_V1_PREFIX}/status")
