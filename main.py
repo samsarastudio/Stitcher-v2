@@ -12,6 +12,7 @@ import logging
 import uuid
 import asyncio
 from task_manager import TaskManager, TaskStatus
+from pathlib import Path
 
 # Set up logging with more detail
 logging.basicConfig(
@@ -94,7 +95,35 @@ async def process_video_task(task_id: str, wwe_path: str, fan_path: str):
 
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/static/index.html")
+    """Health check endpoint"""
+    try:
+        # Check if directories exist and are writable
+        temp_dir = Path(TEMP_DIR)
+        output_dir = Path(OUTPUT_DIR)
+        
+        if not temp_dir.exists():
+            temp_dir.mkdir(parents=True)
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True)
+            
+        # Test directory permissions
+        temp_dir.joinpath("test.txt").touch()
+        temp_dir.joinpath("test.txt").unlink()
+        
+        return {
+            "status": "healthy",
+            "service": "Video Stitcher API",
+            "directories": {
+                "temp": str(temp_dir),
+                "output": str(output_dir)
+            }
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Service unhealthy: {str(e)}"
+        )
 
 @app.post("/stitch-videos/")
 async def stitch_videos(

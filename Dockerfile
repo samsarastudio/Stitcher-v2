@@ -4,6 +4,7 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,10 +17,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create directories for temporary uploads and static files
-RUN mkdir -p temp_uploads static
+RUN mkdir -p temp_uploads static output_videos
+
+# Set environment variables
+ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
 
 # Expose the port the app runs on
 EXPOSE 8000
 
 # Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} 
