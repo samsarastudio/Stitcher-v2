@@ -23,7 +23,8 @@ COPY . .
 # Create directories for temporary uploads and static files with proper permissions
 RUN mkdir -p temp output static && \
     chmod -R 777 temp output && \
-    chmod -R 755 static
+    chmod -R 755 static && \
+    chown -R nobody:nogroup temp output static
 
 # Set environment variables
 ENV PORT=8000
@@ -39,6 +40,9 @@ ENV AUDIO_BITRATE=128k
 ENV MAX_UPLOAD_SIZE=100
 ENV TEMP_DIR=temp
 ENV OUTPUT_DIR=output
+
+# Switch to non-root user
+USER nobody
 
 # Expose the port the app runs on
 EXPOSE 8000

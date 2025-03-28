@@ -148,67 +148,85 @@ async def stitch_videos(
     wwe_video: UploadFile = File(...),
     fan_video: UploadFile = File(...)
 ):
-    """Start video stitching process"""
-    # Validate file sizes
-    wwe_size = 0
-    fan_size = 0
-    for chunk in wwe_video.stream():
-        wwe_size += len(chunk)
-    for chunk in fan_video.stream():
-        fan_size += len(chunk)
-    
-    if wwe_size > MAX_UPLOAD_SIZE * 1024 * 1024 or fan_size > MAX_UPLOAD_SIZE * 1024 * 1024:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File size exceeds {MAX_UPLOAD_SIZE}MB limit"
-        )
-    
-    # Generate unique task ID
-    task_id = str(uuid.uuid4())
-    
-    # Create task
-    task = task_manager.create_task(
-        task_id,
-        wwe_video.filename,
-        fan_video.filename
-    )
-    
-    # Save uploaded files
-    wwe_path = os.path.join(TEMP_DIR, f"wwe_{task_id}.mp4")
-    fan_path = os.path.join(TEMP_DIR, f"fan_{task_id}.mp4")
-    
+    """Upload and stitch two videos together"""
     try:
-        with open(wwe_path, "wb") as f:
-            f.write(await wwe_video.read())
-        with open(fan_path, "wb") as f:
-            f.write(await fan_video.read())
+        # Validate file types
+        if not wwe_video.filename.endswith('.mp4') or not fan_video.filename.endswith('.mp4'):
+            raise HTTPException(
+                status_code=400,
+                detail="Only MP4 files are supported"
+            )
+        
+        # Create unique task ID
+        task_id = str(uuid.uuid4())
+        
+        # Create task
+        task = task_manager.create_task(task_id, wwe_video.filename, fan_video.filename)
+        
+        # Save uploaded files
+        wwe_path = os.path.join(TEMP_DIR, f"wwe_{task_id}.mp4")
+        fan_path = os.path.join(TEMP_DIR, f"fan_{task_id}.mp4")
+        
+        try:
+            # Save WWE video
+            with open(wwe_path, "wb") as f:
+                content = await wwe_video.read()
+                if len(content) > MAX_UPLOAD_SIZE * 1024 * 1024:  # Convert MB to bytes
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"WWE video exceeds maximum size of {MAX_UPLOAD_SIZE}MB"
+                    )
+                f.write(content)
+            
+            # Save fan video
+            with open(fan_path, "wb") as f:
+                content = await fan_video.read()
+                if len(content) > MAX_UPLOAD_SIZE * 1024 * 1024:  # Convert MB to bytes
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Fan video exceeds maximum size of {MAX_UPLOAD_SIZE}MB"
+                    )
+                f.write(content)
+            
+            # Update task status to processing
+            task_manager.update_task_status(task_id, TaskStatus.PROCESSING)
+            
+            # Add video processing to background tasks
+            background_tasks.add_task(
+                process_videos,
+                task_id,
+                wwe_path,
+                fan_path,
+                os.path.join(OUTPUT_DIR, task["output_filename"])
+            )
+            
+            return task
+            
+        except Exception as e:
+            # Clean up temporary files if they exist
+            for path in [wwe_path, fan_path]:
+                if os.path.exists(path):
+                    os.remove(path)
+            raise e
+            
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error saving uploaded files: {e}")
-        raise HTTPException(status_code=500, detail="Error saving uploaded files")
-    
-    # Start processing in background
-    background_tasks.add_task(
-        process_videos,
-        task_id,
-        wwe_path,
-        fan_path
-    )
-    
-    return task
+        logger.error(f"Error processing videos: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to process videos"
+        )
 
 # Background processing function
-async def process_videos(task_id: str, wwe_path: str, fan_path: str):
+async def process_videos(task_id: str, wwe_path: str, fan_path: str, output_path: str):
     """Process videos in background"""
     try:
-        # Update task status to processing
-        task_manager.update_task_status(task_id, TaskStatus.PROCESSING)
-        
         # Import here to avoid circular imports
         from video_stitcher import VideoStitcher
         
         # Process videos
         stitcher = VideoStitcher(wwe_path, fan_path)
-        output_path = task_manager.get_output_path(task_id)
         stitcher.stitch_videos(output_path)
         
         # Update task status to completed
@@ -231,14 +249,24 @@ async def startup_event():
     """Initialize application on startup"""
     logger.info("Starting up application...")
     
-    # Create directories if they don't exist
-    os.makedirs(TEMP_DIR, exist_ok=True)
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
-    # Clean up old tasks
-    task_manager.cleanup_old_tasks()
-    
-    logger.info("Application startup complete")
+    try:
+        # Create directories if they don't exist with proper permissions
+        for directory in [TEMP_DIR, OUTPUT_DIR]:
+            os.makedirs(directory, exist_ok=True)
+            # Ensure directory is writable
+            test_file = os.path.join(directory, "test.txt")
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+            logger.info(f"Directory {directory} is ready")
+        
+        # Clean up old tasks
+        task_manager.cleanup_old_tasks()
+        
+        logger.info("Application startup complete")
+    except Exception as e:
+        logger.error(f"Error during startup: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     import uvicorn
