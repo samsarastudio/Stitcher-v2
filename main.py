@@ -13,6 +13,7 @@ import uuid
 import asyncio
 from task_manager import TaskManager, TaskStatus
 from pathlib import Path
+import time
 
 # Set up logging with more detail
 logging.basicConfig(
@@ -118,9 +119,9 @@ async def process_video_task(task_id: str, wwe_path: str, fan_path: str):
                 except Exception as e:
                     logger.error(f"Error cleaning up temporary file {file}: {e}")
 
-@app.get("/")
-async def root():
-    """Health check endpoint"""
+@app.get("/status")
+async def status():
+    """Comprehensive health check endpoint"""
     try:
         # Check if directories exist and are writable
         temp_dir = Path(TEMP_DIR)
@@ -136,26 +137,62 @@ async def root():
         test_file.touch()
         test_file.unlink()
         
+        # Get system information
+        import psutil
+        cpu_percent = psutil.cpu_percent()
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # Get task statistics
+        all_tasks = task_manager.get_all_tasks()
+        task_stats = {
+            "total": len(all_tasks),
+            "pending": len([t for t in all_tasks if t["status"] == TaskStatus.PENDING.value]),
+            "processing": len([t for t in all_tasks if t["status"] == TaskStatus.PROCESSING.value]),
+            "completed": len([t for t in all_tasks if t["status"] == TaskStatus.COMPLETED.value]),
+            "failed": len([t for t in all_tasks if t["status"] == TaskStatus.FAILED.value])
+        }
+        
         return JSONResponse(
             status_code=200,
             content={
                 "status": "healthy",
                 "service": "Video Stitcher API",
+                "version": "1.0.0",
+                "timestamp": time.time(),
                 "directories": {
                     "temp": str(temp_dir),
                     "output": str(output_dir)
+                },
+                "system": {
+                    "cpu_percent": cpu_percent,
+                    "memory_percent": memory.percent,
+                    "disk_percent": disk.percent
+                },
+                "tasks": task_stats,
+                "environment": {
+                    "max_upload_size": MAX_UPLOAD_SIZE,
+                    "target_width": TARGET_WIDTH,
+                    "target_height": TARGET_HEIGHT,
+                    "target_fps": TARGET_FPS
                 }
             }
         )
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
+        logger.error(f"Status check failed: {str(e)}")
         return JSONResponse(
             status_code=503,
             content={
                 "status": "unhealthy",
-                "error": str(e)
+                "error": str(e),
+                "timestamp": time.time()
             }
         )
+
+@app.get("/")
+async def root():
+    """Root endpoint that redirects to status"""
+    return RedirectResponse(url="/status")
 
 @app.post("/stitch-videos/")
 async def stitch_videos(
@@ -276,6 +313,9 @@ async def download_video(task_id: str):
         logger.warning(f"Output file not found for task {task_id}")
         raise HTTPException(status_code=404, detail="Video file not found")
     
+    # Record the download
+    task_manager.record_download(task_id)
+    
     logger.info(f"Sending file: {output_path}")
     return FileResponse(
         output_path,
@@ -283,6 +323,18 @@ async def download_video(task_id: str):
         filename=f"stitched_video_{task_id}.mp4",
         background=None
     )
+
+@app.get("/downloads/recent")
+async def get_recent_downloads():
+    """Get recent downloads"""
+    logger.info("Getting recent downloads")
+    return task_manager.get_recent_downloads()
+
+@app.get("/downloads/popular")
+async def get_popular_downloads():
+    """Get popular downloads"""
+    logger.info("Getting popular downloads")
+    return task_manager.get_popular_downloads()
 
 if __name__ == "__main__":
     import uvicorn

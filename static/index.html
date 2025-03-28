@@ -86,6 +86,56 @@
             font-size: 0.9rem;
             margin-top: 0.5rem;
         }
+        .downloads-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .downloads-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .downloads-column {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .downloads-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .download-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        .download-item:last-child {
+            border-bottom: none;
+        }
+        .download-info {
+            flex: 1;
+        }
+        .download-filename {
+            font-weight: 500;
+            color: #333;
+        }
+        .download-timestamp {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .download-count {
+            background: #e9ecef;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #495057;
+        }
     </style>
 </head>
 <body>
@@ -155,33 +205,22 @@
         </div>
 
         <!-- Downloads Section -->
-        <div class="row">
-            <div class="col-12">
-                <h2 class="section-title">Downloads</h2>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="card task-card">
-                            <div class="card-body">
-                                <h5 class="card-title">Recent Downloads</h5>
-                                <div id="recentDownloads"></div>
-                            </div>
-                        </div>
+        <div class="downloads-section">
+            <h2>Downloads</h2>
+            <div class="downloads-grid">
+                <!-- Recent Downloads -->
+                <div class="downloads-column">
+                    <h3>Recent Downloads</h3>
+                    <div id="recent-downloads" class="downloads-list">
+                        <!-- Recent downloads will be populated here -->
                     </div>
-                    <div class="col-md-4">
-                        <div class="card task-card">
-                            <div class="card-body">
-                                <h5 class="card-title">Popular Downloads</h5>
-                                <div id="popularDownloads"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card task-card">
-                            <div class="card-body">
-                                <h5 class="card-title">Download History</h5>
-                                <div id="downloadHistory"></div>
-                            </div>
-                        </div>
+                </div>
+                
+                <!-- Popular Downloads -->
+                <div class="downloads-column">
+                    <h3>Popular Downloads</h3>
+                    <div id="popular-downloads" class="downloads-list">
+                        <!-- Popular downloads will be populated here -->
                     </div>
                 </div>
             </div>
@@ -364,6 +403,48 @@
         // Initialize
         updateTasksList();
         startPolling();
+
+        async function loadDownloads() {
+            try {
+                // Load recent downloads
+                const recentResponse = await fetch('/downloads/recent');
+                const recentDownloads = await recentResponse.json();
+                const recentList = document.getElementById('recent-downloads');
+                recentList.innerHTML = recentDownloads.map(download => `
+                    <div class="download-item">
+                        <div class="download-info">
+                            <div class="download-filename">${download.filename}</div>
+                            <div class="download-timestamp">${new Date(download.timestamp * 1000).toLocaleString()}</div>
+                        </div>
+                        <a href="/download/${download.task_id}" class="btn btn-primary btn-sm">Download</a>
+                    </div>
+                `).join('');
+
+                // Load popular downloads
+                const popularResponse = await fetch('/downloads/popular');
+                const popularDownloads = await popularResponse.json();
+                const popularList = document.getElementById('popular-downloads');
+                popularList.innerHTML = popularDownloads.map(download => `
+                    <div class="download-item">
+                        <div class="download-info">
+                            <div class="download-filename">${download.output_filename}</div>
+                            <div class="download-count">${download.downloads} downloads</div>
+                        </div>
+                        <a href="/download/${download.id}" class="btn btn-primary btn-sm">Download</a>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading downloads:', error);
+            }
+        }
+
+        // Update the existing updateUI function to include downloads
+        async function updateUI() {
+            await Promise.all([
+                loadTasks(),
+                loadDownloads()
+            ]);
+        }
     </script>
 </body>
 </html> 
