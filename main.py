@@ -121,7 +121,41 @@ async def process_video_task(task_id: str, wwe_path: str, fan_path: str):
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    return {"status": "healthy", "service": "Video Stitcher API"}
+    try:
+        # Check if directories exist and are writable
+        temp_dir = Path(TEMP_DIR)
+        output_dir = Path(OUTPUT_DIR)
+        
+        if not temp_dir.exists():
+            temp_dir.mkdir(parents=True)
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True)
+            
+        # Test write permissions
+        test_file = temp_dir / "test.txt"
+        test_file.touch()
+        test_file.unlink()
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "healthy",
+                "service": "Video Stitcher API",
+                "directories": {
+                    "temp": str(temp_dir),
+                    "output": str(output_dir)
+                }
+            }
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "error": str(e)
+            }
+        )
 
 @app.post("/stitch-videos/")
 async def stitch_videos(

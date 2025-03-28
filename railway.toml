@@ -4,10 +4,10 @@ dockerfilePath = "./Dockerfile"
 
 [deploy]
 healthcheckPath = "/"
-healthcheckTimeout = 60
+healthcheckTimeout = 120
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
-healthcheckInterval = 10
+restartPolicyMaxRetries = 5
+healthcheckInterval = 15
 
 [deploy.env]
 PYTHONUNBUFFERED = "1"
