@@ -180,16 +180,21 @@ class VideoStitcher:
                 temp_audiofile=os.path.join(self.temp_dir, 'temp-audio.m4a'),
                 remove_temp=True,
                 fps=self.target_fps,
-                threads=1,  # Single thread for better stability
-                preset='veryfast',  # Balanced preset for Railway
+                threads=4,  # Use multiple threads for better performance
+                preset='medium',  # Better quality preset
                 bitrate=self.video_bitrate,
                 audio_bitrate=self.audio_bitrate,
                 logger=None,  # Disable FFMPEG logging
                 ffmpeg_params=[
                     '-max_muxing_queue_size', '1024',
                     '-movflags', '+faststart',  # Enable fast start for web playback
-                    '-profile:v', 'baseline',   # Use baseline profile for better compatibility
-                    '-level', '3.0'            # Set H.264 level for compatibility
+                    '-profile:v', 'high',       # Use high profile for better quality
+                    '-level', '4.0',           # Set H.264 level for compatibility
+                    '-pix_fmt', 'yuv420p',     # Ensure pixel format compatibility
+                    '-colorspace', 'bt709',    # Set standard colorspace
+                    '-color_primaries', 'bt709',
+                    '-color_trc', 'bt709',
+                    '-y'                       # Overwrite output file if exists
                 ]
             )
             
