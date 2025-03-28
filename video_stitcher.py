@@ -3,6 +3,8 @@ import numpy as np
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
 import os
 import logging
+import tempfile
+import shutil
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -14,6 +16,10 @@ class VideoStitcher:
         Initialize the VideoStitcher with paths to input videos
         """
         try:
+            # Create a temporary directory for processing
+            self.temp_dir = tempfile.mkdtemp()
+            logger.info(f"Created temporary directory: {self.temp_dir}")
+            
             logger.info(f"Loading WWE video from: {wwe_video_path}")
             self.wwe_video = VideoFileClip(wwe_video_path)
             
@@ -32,7 +38,7 @@ class VideoStitcher:
             self.target_fps = max(self.wwe_fps, self.fan_fps)
             
             # Ensure all videos are the same size and frame rate
-            self.target_size = (1920, 1080)  # Standard HD resolution
+            self.target_size = (1280, 720)  # Reduced resolution for better performance
             logger.info("Resizing videos to target size")
             self.wwe_video = self.wwe_video.resize(self.target_size).set_fps(self.target_fps)
             self.fan_video = self.fan_video.resize(self.target_size).set_fps(self.target_fps)
@@ -52,7 +58,26 @@ class VideoStitcher:
             
         except Exception as e:
             logger.error(f"Error initializing VideoStitcher: {str(e)}")
+            self.cleanup()
             raise
+
+    def cleanup(self):
+        """Clean up temporary files and resources"""
+        try:
+            # Close video clips if they exist
+            if hasattr(self, 'wwe_video'):
+                self.wwe_video.close()
+            if hasattr(self, 'fan_video'):
+                self.fan_video.close()
+            if hasattr(self, 'commentary'):
+                self.commentary.close()
+            
+            # Remove temporary directory if it exists
+            if hasattr(self, 'temp_dir') and os.path.exists(self.temp_dir):
+                shutil.rmtree(self.temp_dir)
+                logger.info("Cleaned up temporary directory")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")
 
     def create_video_segments(self):
         """
@@ -110,6 +135,9 @@ class VideoStitcher:
         Stitch all video segments together with commentary audio
         """
         try:
+            # Ensure output directory exists
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
             # Create video segments
             logger.info("Creating video segments")
             segments = self.create_video_segments()
@@ -131,18 +159,29 @@ class VideoStitcher:
             logger.info(f"FPS: {final_video.fps}")
             logger.info(f"Size: {final_video.size}")
             
-            # Write the final video
-            logger.info(f"Writing final video to: {output_path}")
+            # Create temporary file path for processing
+            temp_output = os.path.join(self.temp_dir, "temp_output.mp4")
+            
+            # Write the final video with optimized parameters for Render
+            logger.info(f"Writing final video to: {temp_output}")
             final_video.write_videofile(
-                output_path,
+                temp_output,
                 codec='libx264',
                 audio_codec='aac',
-                temp_audiofile='temp-audio.m4a',
+                temp_audiofile=os.path.join(self.temp_dir, 'temp-audio.m4a'),
                 remove_temp=True,
                 fps=self.target_fps,
-                threads=4,  # Limit threads to prevent memory issues
-                preset='medium'  # Use medium preset for better compatibility
+                threads=1,  # Single thread for better stability
+                preset='veryfast',  # Balanced preset for Render
+                bitrate='2500k',  # Reduced bitrate for better performance
+                audio_bitrate='128k',  # Reduced audio bitrate
+                logger=None,  # Disable FFMPEG logging
+                ffmpeg_params=['-max_muxing_queue_size', '1024']
             )
+            
+            # Move the temporary file to the final location
+            shutil.move(temp_output, output_path)
+            logger.info(f"Moved processed video to: {output_path}")
             
             logger.info("Video processing completed successfully")
             
@@ -150,15 +189,8 @@ class VideoStitcher:
             logger.error(f"Error stitching videos: {str(e)}")
             raise
         finally:
-            # Close all clips to free up resources
-            try:
-                final_video.close()
-                self.wwe_video.close()
-                self.fan_video.close()
-                self.commentary.close()
-                logger.info("All video resources closed")
-            except Exception as e:
-                logger.error(f"Error closing video resources: {str(e)}")
+            # Clean up resources
+            self.cleanup()
 
 def main():
     # Example usage
