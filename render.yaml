@@ -6,4 +6,10 @@ services:
     startCommand: ./start.sh
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0 
+        value: 3.9.0
+      - key: TEMP_DIR
+        value: /tmp/temp_uploads
+      - key: MAX_UPLOAD_SIZE
+        value: 100MB
+      - key: ALLOWED_ORIGINS
+        value: "*" 
