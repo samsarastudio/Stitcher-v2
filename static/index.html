@@ -136,6 +136,59 @@
             font-size: 0.8rem;
             color: #495057;
         }
+        .api-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .api-column {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .api-endpoints {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .api-endpoint {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .method {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+            font-size: 0.8rem;
+        }
+        .method.get {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .method.post {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .path {
+            font-family: monospace;
+            color: #333;
+        }
+        .description {
+            color: #666;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -221,6 +274,79 @@
                     <h3>Popular Downloads</h3>
                     <div id="popular-downloads" class="downloads-list">
                         <!-- Popular downloads will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h2>API Documentation</h2>
+            <div class="api-grid">
+                <!-- Health and Status -->
+                <div class="api-column">
+                    <h3>Health & Status</h3>
+                    <div class="api-endpoints">
+                        <div class="api-endpoint">
+                            <span class="method get">GET</span>
+                            <span class="path">/status</span>
+                            <span class="description">Health check endpoint</span>
+                        </div>
+                        <div class="api-endpoint">
+                            <span class="method get">GET</span>
+                            <span class="path">/api/v1/status</span>
+                            <span class="description">API status endpoint</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tasks -->
+                <div class="api-column">
+                    <h3>Tasks</h3>
+                    <div class="api-endpoints">
+                        <div class="api-endpoint">
+                            <span class="method get">GET</span>
+                            <span class="path">/api/v1/tasks</span>
+                            <span class="description">List all tasks</span>
+                        </div>
+                        <div class="api-endpoint">
+                            <span class="method get">GET</span>
+                            <span class="path">/api/v1/tasks/{task_id}</span>
+                            <span class="description">Get task details</span>
+                        </div>
+                        <div class="api-endpoint">
+                            <span class="method get">GET</span>
+                            <span class="path">/api/v1/tasks/{task_id}/download</span>
+                            <span class="description">Download processed video</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Video Processing -->
+                <div class="api-column">
+                    <h3>Video Processing</h3>
+                    <div class="api-endpoints">
+                        <div class="api-endpoint">
+                            <span class="method post">POST</span>
+                            <span class="path">/api/v1/stitch</span>
+                            <span class="description">Start video stitching process</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Downloads -->
+                <div class="api-column">
+                    <h3>Downloads</h3>
+                    <div class="api-endpoints">
+                        <div class="api-endpoint">
+                            <span class="method get">GET</span>
+                            <span class="path">/api/v1/downloads/recent</span>
+                            <span class="description">Get recent downloads</span>
+                        </div>
+                        <div class="api-endpoint">
+                            <span class="method get">GET</span>
+                            <span class="path">/api/v1/downloads/popular</span>
+                            <span class="description">Get popular downloads</span>
+                        </div>
                     </div>
                 </div>
             </div>

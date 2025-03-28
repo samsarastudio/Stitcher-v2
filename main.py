@@ -1,19 +1,19 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
 import os
-from video_stitcher import VideoStitcher
-import tempfile
-import shutil
-from dotenv import load_dotenv
 import logging
 import uuid
 import asyncio
+from dotenv import load_dotenv
 from task_manager import TaskManager, TaskStatus
 from pathlib import Path
 import time
+import psutil
+
+# Load environment variables
+load_dotenv()
 
 # Set up logging with more detail
 logging.basicConfig(
@@ -22,102 +22,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
+# Environment variables
+TEMP_DIR = os.getenv('TEMP_DIR', 'temp')
+OUTPUT_DIR = os.getenv('OUTPUT_DIR', 'output')
+MAX_UPLOAD_SIZE = int(os.getenv('MAX_UPLOAD_SIZE', '100'))
+TARGET_WIDTH = int(os.getenv('TARGET_WIDTH', '1280'))
+TARGET_HEIGHT = int(os.getenv('TARGET_HEIGHT', '720'))
+TARGET_FPS = int(os.getenv('TARGET_FPS', '30'))
+VIDEO_BITRATE = os.getenv('VIDEO_BITRATE', '2000k')
+AUDIO_BITRATE = os.getenv('AUDIO_BITRATE', '128k')
 
-app = FastAPI(title="Video Stitcher API")
+# Create FastAPI app
+app = FastAPI(
+    title="Video Stitcher API",
+    description="API for stitching WWE and fan videos together",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc"
+)
 
-# Add CORS middleware
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins=["*"],  # In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Create directories for temporary and output files
-TEMP_DIR = os.getenv("TEMP_DIR", "temp_uploads")
-OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output_videos")
+# Create directories
+os.makedirs(TEMP_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Initialize task manager
 task_manager = TaskManager(OUTPUT_DIR)
 
-# Maximum upload size (default to 100MB)
-MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", "100MB").replace("MB", "")) * 1024 * 1024
-logger.info(f"Maximum upload size: {MAX_UPLOAD_SIZE / (1024*1024)}MB")
+# API Version prefix
+API_V1_PREFIX = "/api/v1"
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup"""
-    try:
-        logger.info("Starting application initialization")
-        
-        # Create directories if they don't exist
-        os.makedirs(TEMP_DIR, exist_ok=True)
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        
-        # Ensure directories are writable
-        temp_dir = Path(TEMP_DIR)
-        output_dir = Path(OUTPUT_DIR)
-        
-        # Test write permissions
-        test_file = temp_dir / "test.txt"
-        test_file.touch()
-        test_file.unlink()
-        
-        logger.info(f"Using temporary directory: {TEMP_DIR}")
-        logger.info(f"Using output directory: {OUTPUT_DIR}")
-        
-        # Clean up old tasks
-        task_manager.cleanup_old_tasks()
-        
-        logger.info("Application initialization completed successfully")
-    except Exception as e:
-        logger.error(f"Application initialization failed: {str(e)}")
-        raise
-
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-async def process_video_task(task_id: str, wwe_path: str, fan_path: str):
-    """Background task to process videos"""
-    try:
-        logger.info(f"Starting video processing for task {task_id}")
-        logger.info(f"WWE video path: {wwe_path}")
-        logger.info(f"Fan video path: {fan_path}")
-        
-        # Update task status to processing
-        task_manager.update_task_status(task_id, TaskStatus.PROCESSING)
-        
-        # Create video stitcher instance
-        logger.info("Creating VideoStitcher instance")
-        stitcher = VideoStitcher(wwe_path, fan_path)
-        
-        # Get output path
-        output_path = task_manager.get_output_path(task_id)
-        logger.info(f"Output path: {output_path}")
-        
-        # Process the video
-        logger.info("Starting video stitching process")
-        stitcher.stitch_videos(output_path)
-        
-        # Update task status to completed
-        logger.info("Video processing completed successfully")
-        task_manager.update_task_status(task_id, TaskStatus.COMPLETED, progress=100)
-        
-    except Exception as e:
-        logger.error(f"Error processing video task {task_id}: {str(e)}", exc_info=True)
-        task_manager.update_task_status(task_id, TaskStatus.FAILED, error=str(e))
-    finally:
-        # Clean up temporary files
-        for file in [wwe_path, fan_path]:
-            if os.path.exists(file):
-                try:
-                    os.remove(file)
-                    logger.info(f"Cleaned up temporary file: {file}")
-                except Exception as e:
-                    logger.error(f"Error cleaning up temporary file {file}: {e}")
+# Health and Status Endpoints
+@app.get("/")
+async def root():
+    """Root endpoint that redirects to API docs"""
+    return RedirectResponse(url="/api/docs")
 
 @app.get("/status")
 async def status():
@@ -138,7 +88,6 @@ async def status():
         test_file.unlink()
         
         # Get system information
-        import psutil
         cpu_percent = psutil.cpu_percent()
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
@@ -189,113 +138,26 @@ async def status():
             }
         )
 
-@app.get("/")
-async def root():
-    """Root endpoint that redirects to status"""
-    return RedirectResponse(url="/status")
+# API v1 Endpoints
+@app.get(f"{API_V1_PREFIX}/status")
+async def api_status():
+    """API status endpoint"""
+    return await status()
 
-@app.post("/stitch-videos/")
-async def stitch_videos(
-    background_tasks: BackgroundTasks,
-    wwe_video: UploadFile = File(...),
-    fan_video: UploadFile = File(...)
-):
-    """
-    Start a new video stitching task
-    """
-    task_id = str(uuid.uuid4())
-    wwe_path = None
-    fan_path = None
-    
-    try:
-        logger.info(f"Received video upload request for task {task_id}")
-        logger.info(f"WWE video filename: {wwe_video.filename}")
-        logger.info(f"Fan video filename: {fan_video.filename}")
-        
-        # Validate file sizes
-        wwe_video.file.seek(0, 2)  # Seek to end
-        fan_video.file.seek(0, 2)  # Seek to end
-        
-        wwe_size = wwe_video.file.tell()
-        fan_size = fan_video.file.tell()
-        
-        logger.info(f"WWE video size: {wwe_size / (1024*1024):.2f}MB")
-        logger.info(f"Fan video size: {fan_size / (1024*1024):.2f}MB")
-        
-        if wwe_size > MAX_UPLOAD_SIZE or fan_size > MAX_UPLOAD_SIZE:
-            error_msg = f"File size exceeds maximum allowed size of {MAX_UPLOAD_SIZE / (1024*1024)}MB"
-            logger.error(error_msg)
-            raise HTTPException(
-                status_code=400,
-                detail=error_msg
-            )
-        
-        # Reset file pointers
-        wwe_video.file.seek(0)
-        fan_video.file.seek(0)
-        
-        # Save uploaded files temporarily
-        wwe_path = os.path.join(TEMP_DIR, f"wwe_{task_id}.mp4")
-        fan_path = os.path.join(TEMP_DIR, f"fan_{task_id}.mp4")
-        
-        logger.info(f"Saving WWE video to: {wwe_path}")
-        logger.info(f"Saving fan video to: {fan_path}")
-        
-        # Save uploaded files
-        with open(wwe_path, "wb") as buffer:
-            shutil.copyfileobj(wwe_video.file, buffer)
-        with open(fan_path, "wb") as buffer:
-            shutil.copyfileobj(fan_video.file, buffer)
-        
-        # Create task
-        logger.info("Creating new task")
-        task = task_manager.create_task(
-            task_id=task_id,
-            wwe_filename=wwe_video.filename,
-            fan_filename=fan_video.filename
-        )
-        
-        # Add background task
-        logger.info("Adding background task")
-        background_tasks.add_task(
-            process_video_task,
-            task_id=task_id,
-            wwe_path=wwe_path,
-            fan_path=fan_path
-        )
-        
-        response_data = {
-            "task_id": task_id,
-            "status": task["status"],
-            "message": "Video processing started"
-        }
-        logger.info(f"Returning response: {response_data}")
-        return JSONResponse(response_data)
-        
-    except Exception as e:
-        logger.error(f"Error starting video task: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to start video processing: {str(e)}"
-        )
+@app.get(f"{API_V1_PREFIX}/tasks")
+async def list_tasks():
+    """List all tasks"""
+    return task_manager.get_all_tasks()
 
-@app.get("/tasks/{task_id}")
-async def get_task_status(task_id: str):
-    """Get the status of a specific task"""
-    logger.info(f"Getting status for task {task_id}")
+@app.get(f"{API_V1_PREFIX}/tasks/{{task_id}}")
+async def get_task(task_id: str):
+    """Get task details"""
     task = task_manager.get_task(task_id)
     if not task:
-        logger.warning(f"Task {task_id} not found")
         raise HTTPException(status_code=404, detail="Task not found")
     return task
 
-@app.get("/tasks")
-async def get_all_tasks():
-    """Get all tasks"""
-    logger.info("Getting all tasks")
-    return task_manager.get_all_tasks()
-
-@app.get("/download/{task_id}")
+@app.get(f"{API_V1_PREFIX}/tasks/{{task_id}}/download")
 async def download_video(task_id: str):
     """Download the processed video"""
     logger.info(f"Download request for task {task_id}")
@@ -324,17 +186,115 @@ async def download_video(task_id: str):
         background=None
     )
 
-@app.get("/downloads/recent")
+@app.get(f"{API_V1_PREFIX}/downloads/recent")
 async def get_recent_downloads():
     """Get recent downloads"""
     logger.info("Getting recent downloads")
     return task_manager.get_recent_downloads()
 
-@app.get("/downloads/popular")
+@app.get(f"{API_V1_PREFIX}/downloads/popular")
 async def get_popular_downloads():
     """Get popular downloads"""
     logger.info("Getting popular downloads")
     return task_manager.get_popular_downloads()
+
+@app.post(f"{API_V1_PREFIX}/stitch")
+async def stitch_videos(
+    background_tasks: BackgroundTasks,
+    wwe_video: UploadFile = File(...),
+    fan_video: UploadFile = File(...)
+):
+    """Start video stitching process"""
+    # Validate file sizes
+    wwe_size = 0
+    fan_size = 0
+    for chunk in wwe_video.stream():
+        wwe_size += len(chunk)
+    for chunk in fan_video.stream():
+        fan_size += len(chunk)
+    
+    if wwe_size > MAX_UPLOAD_SIZE * 1024 * 1024 or fan_size > MAX_UPLOAD_SIZE * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size exceeds {MAX_UPLOAD_SIZE}MB limit"
+        )
+    
+    # Generate unique task ID
+    task_id = str(uuid.uuid4())
+    
+    # Create task
+    task = task_manager.create_task(
+        task_id,
+        wwe_video.filename,
+        fan_video.filename
+    )
+    
+    # Save uploaded files
+    wwe_path = os.path.join(TEMP_DIR, f"wwe_{task_id}.mp4")
+    fan_path = os.path.join(TEMP_DIR, f"fan_{task_id}.mp4")
+    
+    try:
+        with open(wwe_path, "wb") as f:
+            f.write(await wwe_video.read())
+        with open(fan_path, "wb") as f:
+            f.write(await fan_video.read())
+    except Exception as e:
+        logger.error(f"Error saving uploaded files: {e}")
+        raise HTTPException(status_code=500, detail="Error saving uploaded files")
+    
+    # Start processing in background
+    background_tasks.add_task(
+        process_videos,
+        task_id,
+        wwe_path,
+        fan_path
+    )
+    
+    return task
+
+# Background processing function
+async def process_videos(task_id: str, wwe_path: str, fan_path: str):
+    """Process videos in background"""
+    try:
+        # Update task status to processing
+        task_manager.update_task_status(task_id, TaskStatus.PROCESSING)
+        
+        # Import here to avoid circular imports
+        from video_stitcher import VideoStitcher
+        
+        # Process videos
+        stitcher = VideoStitcher(wwe_path, fan_path)
+        output_path = task_manager.get_output_path(task_id)
+        stitcher.stitch_videos(output_path)
+        
+        # Update task status to completed
+        task_manager.update_task_status(task_id, TaskStatus.COMPLETED)
+        
+    except Exception as e:
+        logger.error(f"Error processing videos: {e}")
+        task_manager.update_task_status(task_id, TaskStatus.FAILED, error=str(e))
+    finally:
+        # Cleanup temporary files
+        try:
+            os.remove(wwe_path)
+            os.remove(fan_path)
+        except Exception as e:
+            logger.error(f"Error cleaning up temporary files: {e}")
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup"""
+    logger.info("Starting up application...")
+    
+    # Create directories if they don't exist
+    os.makedirs(TEMP_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    
+    # Clean up old tasks
+    task_manager.cleanup_old_tasks()
+    
+    logger.info("Application startup complete")
 
 if __name__ == "__main__":
     import uvicorn
