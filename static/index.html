@@ -36,6 +36,10 @@
             border-color: #0d6efd;
             background-color: #e9ecef;
         }
+        #loadingSpinner {
+            display: none;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -52,12 +56,17 @@
                             <div class="mb-3">
                                 <label for="wweVideo" class="form-label">WWE Video</label>
                                 <input type="file" class="form-control" id="wweVideo" name="wwe_video" accept="video/*" required>
+                                <div class="invalid-feedback">Please select a WWE video.</div>
                             </div>
                             <div class="mb-3">
                                 <label for="fanVideo" class="form-label">Fan Video</label>
                                 <input type="file" class="form-control" id="fanVideo" name="fan_video" accept="video/*" required>
+                                <div class="invalid-feedback">Please select a fan video.</div>
                             </div>
-                            <button type="submit" class="btn btn-primary">Start Processing</button>
+                            <button type="submit" class="btn btn-primary">
+                                Start Processing
+                                <span id="loadingSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -180,21 +189,53 @@
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Get file inputs
+            const wweFile = document.getElementById('wweVideo').files[0];
+            const fanFile = document.getElementById('fanVideo').files[0];
+            
+            // Validate files
+            if (!wweFile || !fanFile) {
+                alert('Please select both videos');
+                return;
+            }
+            
+            // Log file details
+            console.log('WWE Video:', {
+                name: wweFile.name,
+                size: formatFileSize(wweFile.size),
+                type: wweFile.type
+            });
+            console.log('Fan Video:', {
+                name: fanFile.name,
+                size: formatFileSize(fanFile.size),
+                type: fanFile.type
+            });
+            
             const formData = new FormData();
-            formData.append('wwe_video', document.getElementById('wweVideo').files[0]);
-            formData.append('fan_video', document.getElementById('fanVideo').files[0]);
+            formData.append('wwe_video', wweFile);
+            formData.append('fan_video', fanFile);
+            
+            // Show loading spinner
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const spinner = document.getElementById('loadingSpinner');
+            submitButton.disabled = true;
+            spinner.style.display = 'inline-block';
             
             try {
+                console.log('Sending request to /stitch-videos/');
                 const response = await fetch('/stitch-videos/', {
                     method: 'POST',
                     body: formData
                 });
                 
+                console.log('Response status:', response.status);
+                const result = await response.json();
+                console.log('Response data:', result);
+                
                 if (!response.ok) {
-                    throw new Error('Failed to start video processing');
+                    throw new Error(result.detail || 'Failed to start video processing');
                 }
                 
-                const result = await response.json();
                 activeTasks.add(result.task_id);
                 updateTasksList();
                 
@@ -202,9 +243,31 @@
                 e.target.reset();
                 e.target.classList.remove('was-validated');
                 
+                // Show success message
+                alert('Video processing started successfully!');
+                
             } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to start video processing. Please try again.');
+                console.error('Error details:', error);
+                alert(`Failed to start video processing: ${error.message}`);
+            } finally {
+                // Hide loading spinner
+                submitButton.disabled = false;
+                spinner.style.display = 'none';
+            }
+        });
+
+        // Add file input validation
+        document.getElementById('wweVideo').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('WWE Video selected:', file.name);
+            }
+        });
+
+        document.getElementById('fanVideo').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('Fan Video selected:', file.name);
             }
         });
 
