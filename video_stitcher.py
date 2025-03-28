@@ -109,6 +109,9 @@ class VideoStitcher:
                 else:  # fan video
                     segment = self.fan_video.subclip(start_time, min(end_time, fan_duration))
                 
+                # Ensure consistent frame rate
+                segment = segment.set_fps(self.target_fps)
+                
                 # Add fade in to all segments except the first one
                 if i > 0:
                     segment = segment.fadein(self.transition_duration)
