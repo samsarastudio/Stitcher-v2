@@ -35,4 +35,4 @@ ENV PYTHONIOENCODING=utf-8
 EXPOSE 8000
 
 # Command to run the application with proper logging
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"] 
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info --reload"] 

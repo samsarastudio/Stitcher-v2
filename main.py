@@ -121,15 +121,7 @@ async def process_video_task(task_id: str, wwe_path: str, fan_path: str):
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    try:
-        # Simple health check that verifies the application is running
-        return {"status": "healthy", "service": "Video Stitcher API"}
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Service unhealthy: {str(e)}"
-        )
+    return {"status": "healthy", "service": "Video Stitcher API"}
 
 @app.post("/stitch-videos/")
 async def stitch_videos(
