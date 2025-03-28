@@ -1,0 +1,19 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pip install -r requirements.txt"
+
+[deploy]
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[deploy.env]
+PYTHONUNBUFFERED = "1"
+TARGET_WIDTH = "1280"
+TARGET_HEIGHT = "720"
+TARGET_FPS = "30"
+VIDEO_BITRATE = "2000k"
+AUDIO_BITRATE = "128k"
+MAX_UPLOAD_SIZE = "100MB" 

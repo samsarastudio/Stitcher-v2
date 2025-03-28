@@ -5,6 +5,7 @@ import os
 import logging
 import tempfile
 import shutil
+from pathlib import Path
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +21,15 @@ class VideoStitcher:
             self.temp_dir = tempfile.mkdtemp()
             logger.info(f"Created temporary directory: {self.temp_dir}")
             
+            # Get environment variables with defaults
+            self.target_size = (
+                int(os.getenv('TARGET_WIDTH', '1280')),
+                int(os.getenv('TARGET_HEIGHT', '720'))
+            )
+            self.target_fps = int(os.getenv('TARGET_FPS', '30'))
+            self.video_bitrate = os.getenv('VIDEO_BITRATE', '2000k')
+            self.audio_bitrate = os.getenv('AUDIO_BITRATE', '128k')
+            
             logger.info(f"Loading WWE video from: {wwe_video_path}")
             self.wwe_video = VideoFileClip(wwe_video_path)
             
@@ -34,11 +44,7 @@ class VideoStitcher:
             self.wwe_fps = self.wwe_video.fps
             self.fan_fps = self.fan_video.fps
             
-            # Use the higher frame rate for the final video
-            self.target_fps = max(self.wwe_fps, self.fan_fps)
-            
             # Ensure all videos are the same size and frame rate
-            self.target_size = (1280, 720)  # Reduced resolution for better performance
             logger.info("Resizing videos to target size")
             self.wwe_video = self.wwe_video.resize(self.target_size).set_fps(self.target_fps)
             self.fan_video = self.fan_video.resize(self.target_size).set_fps(self.target_fps)
@@ -165,7 +171,7 @@ class VideoStitcher:
             # Create temporary file path for processing
             temp_output = os.path.join(self.temp_dir, "temp_output.mp4")
             
-            # Write the final video with optimized parameters for Render
+            # Write the final video with optimized parameters for Railway
             logger.info(f"Writing final video to: {temp_output}")
             final_video.write_videofile(
                 temp_output,
@@ -175,11 +181,16 @@ class VideoStitcher:
                 remove_temp=True,
                 fps=self.target_fps,
                 threads=1,  # Single thread for better stability
-                preset='veryfast',  # Balanced preset for Render
-                bitrate='2500k',  # Reduced bitrate for better performance
-                audio_bitrate='128k',  # Reduced audio bitrate
+                preset='veryfast',  # Balanced preset for Railway
+                bitrate=self.video_bitrate,
+                audio_bitrate=self.audio_bitrate,
                 logger=None,  # Disable FFMPEG logging
-                ffmpeg_params=['-max_muxing_queue_size', '1024']
+                ffmpeg_params=[
+                    '-max_muxing_queue_size', '1024',
+                    '-movflags', '+faststart',  # Enable fast start for web playback
+                    '-profile:v', 'baseline',   # Use baseline profile for better compatibility
+                    '-level', '3.0'            # Set H.264 level for compatibility
+                ]
             )
             
             # Move the temporary file to the final location
