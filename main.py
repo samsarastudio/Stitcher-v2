@@ -35,17 +35,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 # Create directories for temporary and output files
 TEMP_DIR = os.getenv("TEMP_DIR", "temp_uploads")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output_videos")
-os.makedirs(TEMP_DIR, exist_ok=True)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-logger.info(f"Using temporary directory: {TEMP_DIR}")
-logger.info(f"Using output directory: {OUTPUT_DIR}")
+# Ensure directories exist and are writable
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup"""
+    try:
+        logger.info("Starting application initialization")
+        
+        # Create directories if they don't exist
+        os.makedirs(TEMP_DIR, exist_ok=True)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        
+        # Ensure directories are writable
+        temp_dir = Path(TEMP_DIR)
+        output_dir = Path(OUTPUT_DIR)
+        
+        # Test write permissions
+        test_file = temp_dir / "test.txt"
+        test_file.touch()
+        test_file.unlink()
+        
+        logger.info(f"Using temporary directory: {TEMP_DIR}")
+        logger.info(f"Using output directory: {OUTPUT_DIR}")
+        
+        # Initialize task manager
+        global task_manager
+        task_manager = TaskManager(OUTPUT_DIR)
+        
+        # Clean up old tasks
+        task_manager.cleanup_old_tasks()
+        
+        logger.info("Application initialization completed successfully")
+    except Exception as e:
+        logger.error(f"Application initialization failed: {str(e)}")
+        raise
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Initialize task manager
 task_manager = TaskManager(OUTPUT_DIR)
@@ -107,8 +137,9 @@ async def root():
             output_dir.mkdir(parents=True)
             
         # Test directory permissions
-        temp_dir.joinpath("test.txt").touch()
-        temp_dir.joinpath("test.txt").unlink()
+        test_file = temp_dir / "test.txt"
+        test_file.touch()
+        test_file.unlink()
         
         return {
             "status": "healthy",
@@ -116,7 +147,8 @@ async def root():
             "directories": {
                 "temp": str(temp_dir),
                 "output": str(output_dir)
-            }
+            },
+            "max_upload_size": f"{MAX_UPLOAD_SIZE / (1024*1024)}MB"
         }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
@@ -251,13 +283,6 @@ async def download_video(task_id: str):
         filename=f"stitched_video_{task_id}.mp4",
         background=None
     )
-
-# Cleanup old tasks periodically
-@app.on_event("startup")
-async def startup_event():
-    """Clean up old tasks on startup"""
-    logger.info("Starting application cleanup")
-    task_manager.cleanup_old_tasks()
 
 if __name__ == "__main__":
     import uvicorn
